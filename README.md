@@ -11,7 +11,8 @@ one line in `.env`.
 
 Milestones 1–6 of [`ANIZ_AI_PLAN.md`](./ANIZ_AI_PLAN.md) are implemented:
 streaming chat, persisted conversations, a supervised tool loop, outcome
-verification, specialist roles plus a verifier pass, and opt-in browser access.
+verification, specialist roles plus a verifier pass, and read-only browser access
+that runs on your existing Edge or Chrome.
 
 ## Requirements
 
@@ -52,6 +53,14 @@ For development with auto-restart: `npm run dev`
 - **Stop** cancels an in-flight reply. **Retry** re-runs the last message without
   storing it twice.
 
+### Voice
+
+The assistant is meant to talk like a person, not a help desk: it answers, then
+stops. Small models love to append a canned closer ("How can I assist you
+today?"), so that is handled twice — the system prompt forbids it, and a small
+filter (`src/agent/style.ts`) drops any that still slip through, while still
+streaming the reply sentence by sentence. Filler is never shown.
+
 ### Tools
 
 The workspace is `WORKSPACE_DIR` (default `./data/workspace`). Tools cannot read
@@ -64,7 +73,7 @@ or write outside it; absolute paths and `..` escapes are refused.
 | `search_files` | read | `query`, `path`; returns `file:line: text` |
 | `write_file` | write | requires **Allow file edits**; re-reads the file to verify |
 | `delete_file` | destructive | requires explicit `allowDestructive`; never from the UI |
-| `browser_navigate` | read | **opt-in**, see below |
+| `browser_navigate` | read | needs Playwright + a Chromium browser (uses system Edge/Chrome) |
 
 ### How the agent loop works
 
@@ -155,19 +164,26 @@ The response is `text/event-stream` with these events:
 
 Errors before the stream starts are returned as JSON with a `400`-series status.
 
-## Browser access (milestone 6, opt-in)
+## Browser access (milestone 6)
 
 `browser_navigate` opens a page and returns its title and visible text. It is
 **read-only**: it never clicks, types or submits, so it cannot change state on a
-site. It needs Playwright, which is a large download, so it is **not installed by
-default** and the app reports it as unavailable rather than pretending:
+site. Because it uses a real browser it also sees JavaScript-rendered content
+that a plain HTTP fetch would miss.
+
+It needs the Playwright package (`npm i playwright`, already a dependency) plus
+*some* Chromium-based browser. It does **not** require downloading Playwright's
+own Chromium: the app prefers Playwright's bundled Chromium if present and
+otherwise drives a system **Microsoft Edge or Google Chrome**, so on a normal
+Windows machine it works with no extra download. If neither exists it says so
+honestly instead of pretending:
 
 ```bash
-npm i playwright
-npx playwright install chromium
+npx playwright install chromium   # optional: only if no system Edge/Chrome
 ```
 
-`GET /api/health` then lists `browser_navigate` as available.
+`GET /api/health` reports which browser will be used, e.g.
+`Playwright will drive the installed Microsoft Edge.`
 
 ## Tests and checks
 
@@ -204,10 +220,12 @@ src/
     registry.ts             lookup, prompt catalogue, availability
     files.ts                the five workspace file tools
     verify.ts               read-back verification helpers (M4)
-    browser.ts              opt-in Playwright tool (M6)
+    browser.ts              read-only browser tool (M6)
+    browserLocate.ts        picks Playwright Chromium or a system Edge/Chrome
   agent/
     prompts.ts              system prompts, roles, modes, verifier prompt
     protocol.ts             tool-call parsing
+    style.ts                enforces the voice: strips canned closers
     verifier.ts             tool-outcome evidence summary
     agent.ts                the streaming loop
   routes/

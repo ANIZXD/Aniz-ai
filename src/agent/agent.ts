@@ -4,6 +4,7 @@ import type { ToolRegistry } from "../tools/registry.ts";
 import type { ToolContext, ToolResult, ToolRisk } from "../tools/types.ts";
 import { buildReviewPrompt, buildSystemPrompt, type AgentMode, type AgentRole } from "./prompts.ts";
 import { looksUndecided, parseToolCall } from "./protocol.ts";
+import { createTrailingFilter, stripTrailingFiller } from "./style.ts";
 import { summarizeToolOutcomes, type ToolOutcome } from "./verifier.ts";
 
 export type AgentEvent =
@@ -115,7 +116,8 @@ export async function* runAgent(options: RunAgentOptions): AsyncGenerator<AgentE
 
     let held = "";
     let decided = false;
-    let proseProduced = false;
+    let emitted = 0;
+    const filter = createTrailingFilter();
 
     for await (const event of provider.streamChat({ messages, signal, model })) {
       if (event.type !== "delta") {
@@ -127,8 +129,11 @@ export async function* runAgent(options: RunAgentOptions): AsyncGenerator<AgentE
       if (event.text === "") continue;
 
       if (decided) {
-        proseProduced = true;
-        yield { type: "delta", text: event.text };
+        const out = filter.push(event.text);
+        if (out !== "") {
+          emitted += out.length;
+          yield { type: "delta", text: out };
+        }
         continue;
       }
 
@@ -138,9 +143,21 @@ export async function* runAgent(options: RunAgentOptions): AsyncGenerator<AgentE
       if (useTools && looksUndecided(held)) continue;
 
       decided = true;
-      proseProduced = true;
-      yield { type: "delta", text: held };
+      const out = filter.push(held);
       held = "";
+      if (out !== "") {
+        emitted += out.length;
+        yield { type: "delta", text: out };
+      }
+    }
+
+    // Release the sentence held back above, minus any trailing filler.
+    if (decided) {
+      const tail = filter.flush();
+      if (tail !== "") {
+        emitted += tail.length;
+        yield { type: "delta", text: tail };
+      }
     }
 
     let toolCall = null;
@@ -148,13 +165,16 @@ export async function* runAgent(options: RunAgentOptions): AsyncGenerator<AgentE
       toolCall = useTools ? parseToolCall(held) : null;
       if (toolCall === null && held !== "") {
         // It looked like a tool call but was not one after all.
-        proseProduced = true;
-        yield { type: "delta", text: held };
+        const cleaned = stripTrailingFiller(held);
+        if (cleaned !== "") {
+          emitted += cleaned.length;
+          yield { type: "delta", text: cleaned };
+        }
       }
     }
 
     if (toolCall === null) {
-      finishReason = proseProduced ? "stop" : "empty";
+      finishReason = emitted > 0 ? "stop" : "empty";
       break;
     }
 

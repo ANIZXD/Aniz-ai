@@ -121,17 +121,29 @@ empty message, so hint matching walks `cause` **and** `.errors`. Both are under 
 - [x] Deliberately **no** multi-agent orchestration: one loop, one selected role, one
       verifier pass. Nothing here is theatre.
 
-### M6 — Browser automation (opt-in, not installed)
+### M6 — Browser automation (works via a system browser)
 
 - [x] `browser_navigate` tool: returns a page title and visible text
 - [x] Read-only by design — it never clicks, types or submits, so it cannot change
       state on a site
-- [x] Honest availability: without Playwright the tool reports itself unavailable
-      and `/api/health` says so, instead of failing at call time
-- [x] Tested against an injected driver, so the code path is covered without a browser
-- [ ] **Playwright is not installed.** It is a large download and the target machine
-      has limited storage, so this is left as a one-line opt-in:
-      `npm i playwright && npx playwright install chromium`
+- [x] Sees JavaScript-rendered content, which a plain HTTP fetch cannot
+- [x] Honest availability: without Playwright *and* a browser it reports itself
+      unavailable and `/api/health` says so, instead of failing at call time
+- [x] Prefers Playwright's bundled Chromium when present, otherwise drives a system
+      Microsoft Edge / Google Chrome — so **no large download is needed** on a
+      normal Windows machine (`src/tools/browserLocate.ts`)
+- [x] Verified live: navigated to `https://example.com` through the installed Edge
+      with no Chromium download
+
+### Voice — talking like a person, not a help desk
+
+- [x] System prompt: sound like a sharp, friendly person; lead with the answer;
+      finish the whole job in one reply; never close with an offer of help
+- [x] Enforced in code (`src/agent/style.ts`): canned closers are stripped from the
+      output while still streaming sentence by sentence, because a small model will
+      not reliably obey the instruction alone
+- [x] Only short filler (≤ 70 characters) is ever removed, so real content that
+      merely mentions helping is kept
 
 ### Deferred
 
@@ -145,12 +157,20 @@ Commands: `npm run typecheck`, `npm test`, `npm start` + live HTTP calls against
 Ollama `qwen3:0.6b`.
 
 - `npm run typecheck` — clean (src and test).
-- `npm test` — **105 tests, 105 pass, 0 fail**, no network required. Suites:
-  adapters, routes, sessions, tools, protocol, agent, verifier helpers.
-- `GET /api/health` — `ok: true`, provider `ollama`, model `qwen3:0.6b`; tools
-  `list_files, read_file, search_files, write_file, delete_file` ready;
-  `browser_navigate` reported unavailable with the install hint; workspace path
-  reported.
+- `npm test` — **145 tests, 145 pass, 0 fail**, no network required. Suites:
+  adapters, routes, sessions, tools, protocol, agent, style, verifier helpers,
+  browser location, config, chat history and system prompts.
+- `GET /api/health` — `ok: true`, provider `ollama`, model `qwen3:0.6b`; all six
+  tools ready, including `browser_navigate` reporting
+  `Playwright will drive the installed Microsoft Edge.`; workspace path reported.
+- **Browser, live:** in agent mode the model called `browser_navigate` on
+  `https://example.com` → `tool_result` ok with `Title: Example Domain` and the
+  page text, rendered by the real installed Edge with no Chromium download. The
+  returned text included the localized paragraphs that `example.com/s.js` injects
+  at runtime — content a plain HTTP fetch never sees.
+- **Voice, live:** "What is 2 plus 2?" → `2 + 2 = 4.`; "hi" → `Hi!`. No
+  "How can I assist you?" closer in either, where the small model previously
+  appended one every time.
 - **Tool loop, live:** "Read notes.txt with the read_file tool" → `tool_call`
   (`read_file`, allowed) → `tool_result` (ok, bytes) → grounded answer naming the
   correct project codename. `steps: 2`.
@@ -191,7 +211,16 @@ Ollama `qwen3:0.6b`.
 - The UI has not been clicked through by hand in a browser; the API and the
   static assets were driven directly.
 - The `openai` provider has not been tested against a live endpoint (no key).
-- `browser_navigate` has not run against a real browser (Playwright not installed).
+
+### Note on concurrent work
+
+While this was being built, a second session committed an independent line of
+work to the same repository (commit `49dcefd`): an Ollama conversation-settings
+layer (stop list, thinking toggle, history mode, sampling), `browserLocate.ts`
+with the system-browser fallback, and config/history/prompt/browser-location
+tests. That work and this one are complementary — the stop list trims the canned
+closers at generation time, and `style.ts` removes any that still appear — and the
+combined suite passes.
 
 ## Known limitations
 

@@ -321,6 +321,42 @@ describe("runAgent in agent mode", () => {
   });
 });
 
+describe("runAgent reply styling", () => {
+  test("strips a trailing offer of help from the streamed reply", async () => {
+    const provider = createScriptedAdapter([
+      "The file has three lines.\n\nHow can I assist you today?",
+    ]);
+
+    const events = await collect(runAgent(base(provider)));
+
+    const text = events
+      .filter((event): event is Extract<AgentEvent, { type: "delta" }> => event.type === "delta")
+      .map((event) => event.text)
+      .join("");
+
+    assert.equal(text, "The file has three lines.\n\n");
+    assert.doesNotMatch(text, /assist/i);
+  });
+
+  test("still reports an empty finish when the whole reply was filler", async () => {
+    const provider = createScriptedAdapter(["How can I help you?"]);
+    const events = await collect(runAgent(base(provider)));
+
+    assert.equal(doneEvent(events).finishReason, "empty");
+  });
+
+  test("keeps streamed replies that have no filler", async () => {
+    const provider = createScriptedAdapter(["Two plus two is four."]);
+    const events = await collect(runAgent(base(provider)));
+
+    const text = events
+      .filter((event): event is Extract<AgentEvent, { type: "delta" }> => event.type === "delta")
+      .map((event) => event.text)
+      .join("");
+    assert.equal(text, "Two plus two is four.");
+  });
+});
+
 describe("runAgent verifier pass", () => {
   test("runs the reviewer after the agent finishes", async () => {
     const provider = createScriptedAdapter([

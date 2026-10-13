@@ -37,8 +37,8 @@ const FILLER_START = new RegExp(
   "i",
 );
 
-/** A filler "sentence" still has to be short; long text is treated as content. */
-const MAX_FILLER_LENGTH = 120;
+/** A filler "sentence" has to be a short one-liner; longer text is treated as content. */
+const MAX_FILLER_LENGTH = 70;
 
 function isFillerSentence(sentence: string): boolean {
   const cleaned = sentence
