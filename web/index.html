@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>ANIZ AI</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="app" id="app">
+      <aside class="sidebar" id="sidebar" aria-label="Conversations">
+        <div class="sidebar-head">
+          <button type="button" class="primary block" id="newChat">New chat</button>
+          <button type="button" class="ghost icon" id="closeSidebar" aria-label="Hide conversations">×</button>
+        </div>
+        <ul class="session-list" id="sessions"></ul>
+        <div class="sidebar-foot">
+          <span class="hint" id="workspaceHint"></span>
+        </div>
+      </aside>
+
+      <section class="main">
+        <header class="topbar">
+          <button type="button" class="ghost icon" id="toggleSidebar" aria-label="Show conversations">☰</button>
+          <div class="brand">
+            <span class="mark" aria-hidden="true">AN</span>
+            <div class="brand-text">
+              <h1>ANIZ AI</h1>
+              <p class="subtitle">Local-first assistant workspace</p>
+            </div>
+          </div>
+          <div class="status" id="status" role="status" aria-live="polite">
+            <span class="dot" id="statusDot" data-state="pending"></span>
+            <span id="statusText">Checking the model…</span>
+          </div>
+        </header>
+
+        <div class="controls">
+          <label class="field">
+            <span>Mode</span>
+            <select id="mode">
+              <option value="chat">Chat — answer only</option>
+              <option value="agent" selected>Agent — can use tools</option>
+              <option value="plan">Plan — outline only</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>Role</span>
+            <select id="role">
+              <option value="assistant" selected>Assistant</option>
+              <option value="coder">Coder</option>
+              <option value="researcher">Researcher</option>
+              <option value="reviewer">Reviewer</option>
+            </select>
+          </label>
+
+          <label class="check" title="Run a verifier pass over the tool results when the agent finishes">
+            <input type="checkbox" id="review" />
+            <span>Verifier</span>
+          </label>
+
+          <label class="check" title="Let the agent create and overwrite files inside the workspace">
+            <input type="checkbox" id="allowWrite" />
+            <span>Allow file edits</span>
+          </label>
+        </div>
+
+        <main class="chat" id="chat">
+          <section class="empty" id="empty">
+            <h2>Start a conversation</h2>
+            <p>
+              Messages go to the model configured in <code>.env</code>. In
+              <strong>Agent</strong> mode it can also read and search files inside
+              the workspace, and write to them when you allow it.
+            </p>
+          </section>
+          <ol class="messages" id="messages" aria-live="polite" aria-relevant="additions text"></ol>
+        </main>
+
+        <div class="banner" id="banner" role="alert" hidden>
+          <span id="bannerText"></span>
+          <button type="button" class="ghost" id="retry" hidden>Retry</button>
+        </div>
+
+        <form class="composer" id="composer">
+          <label class="sr-only" for="input">Message</label>
+          <textarea
+            id="input"
+            rows="1"
+            placeholder="Ask ANIZ AI anything…"
+            autocomplete="off"
+            spellcheck="false"
+          ></textarea>
+          <div class="composer-actions">
+            <span class="hint">Enter to send · Shift+Enter for a new line</span>
+            <div class="composer-buttons">
+              <button type="button" class="ghost" id="stop" hidden>Stop</button>
+              <button type="submit" class="primary" id="send">Send</button>
+            </div>
+          </div>
+        </form>
+      </section>
+    </div>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>
